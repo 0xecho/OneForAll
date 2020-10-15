@@ -83,12 +83,6 @@ def get_fingerprint():
         fingerprints = json.load(file)
     return fingerprints
 
-def get_expired_fingerprints():
-    path = settings.data_storage_dir.joinpath('expired.json')
-    with open(path, encoding='utf-8', errors='ignore') as file:
-        fingerprints = json.load(file)
-    return fingerprints
-
 def get_cname(subdomain):
     resolver = utils.dns_resolver()
     try:
@@ -227,7 +221,6 @@ class Takeover(Module):
         if self.subdomains:
             logger.log('INFOR', f'Checking subdomain takeover')
             self.fingerprints = get_fingerprint()
-            self.expired_fingerprints = get_expired_fingerprints()
             self.results.headers = ['subdomain', 'cname']
             # 创建待检查的子域队列
             for domain in self.subdomains:
