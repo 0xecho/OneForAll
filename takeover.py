@@ -21,6 +21,61 @@ from config import settings
 from common import utils
 from common.module import Module
 
+import dns.query
+import dns.resolver
+from dns.exception import DNSException
+
+def query_authoritative_ns (domain, log=lambda msg: None):
+
+    default = dns.resolver.get_default_resolver()
+    ns = default.nameservers[0]
+
+    n = domain.split('.')
+    results = []
+
+    for i in range(len(n), 0, -1):
+        sub = '.'.join(n[i-1:])
+
+        log('Looking up %s on %s' % (sub, ns))
+        query = dns.message.make_query(sub, dns.rdatatype.NS)
+        response = dns.query.udp(query, ns)
+
+        rcode = response.rcode()
+        if rcode != dns.rcode.NOERROR:
+            if rcode == dns.rcode.NXDOMAIN:
+                raise Exception('%s does not exist.' % (sub))
+            else:
+                raise Exception('Error %s' % (dns.rcode.to_text(rcode)))
+
+        if len(response.authority) > 0:
+            rrsets = response.authority
+        elif len(response.additional) > 0:
+            rrsets = [response.additional]
+        else:
+            rrsets = response.answer
+
+        # Handle all RRsets, not just the first one
+        for rrset in rrsets:
+            for rr in rrset:
+                if rr.rdtype == dns.rdatatype.SOA:
+                    log('Same server is authoritative for %s' % (sub))
+                elif rr.rdtype == dns.rdatatype.A:
+                    ns = rr.items[0].address
+                    log('Glue record for %s: %s' % (rr.name, ns))
+                elif rr.rdtype == dns.rdatatype.NS:
+                    authority = rr.target
+                    ns = default.query(authority).rrset[0].to_text()
+                    log('%s [%s] is authoritative for %s; ttl %i' % 
+                        (authority, ns, sub, rrset.ttl))
+                    if sub == domain:
+                        results.append(authority.to_text()[:-1])
+                else:
+                    # IPv6 glue records etc
+                    #log('Ignoring %s' % (rr))
+                    pass
+
+    return results
+
 
 def get_fingerprint():
     path = settings.data_storage_dir.joinpath('fingerprints.json')
@@ -28,6 +83,11 @@ def get_fingerprint():
         fingerprints = json.load(file)
     return fingerprints
 
+def get_expired_fingerprints():
+    path = settings.data_storage_dir.joinpath('expired.json')
+    with open(path, encoding='utf-8', errors='ignore') as file:
+        fingerprints = json.load(file)
+    return fingerprints
 
 def get_cname(subdomain):
     resolver = utils.dns_resolver()
@@ -37,7 +97,7 @@ def get_cname(subdomain):
         logger.log('TRACE', e.args)
         return None
     for answer in answers:
-        return answer.to_text()  # 一个子域只有一个CNAME记录
+        return answer.to_text()[:-1] if answer.to_text()[-1]=='.' else answer.to_text()  # 一个子域只有一个CNAME记录
 
 
 class Takeover(Module):
@@ -94,17 +154,46 @@ class Takeover(Module):
                 self.results.append([subdomain, cname])
                 break
 
+    def is_expired_or_nonexistant(self,subdomain,cname=False,ns=False):
+        resp = self.get('http://' + subdomain, check=False, ignore=True)
+        
+        if resp is None:
+            resolver = utils.dns_resolver()
+            try:
+                answers = resolver.query(subdomain, 'A')
+            except Exception as e:
+                if cname: 
+                    logger.log('ALERT', f'Possible nonexistant domain threat found @ {subdomain}')
+                    self.results.append([subdomain, "**non-Existant-domain**"])
+                if ns:
+                    logger.log('ALERT', f'Possible nonexistant Name server threat found @ {subdomain}')
+                    self.results.append([subdomain, "**non-Existant-ns**"])
+        elif resp:
+            for fingerprint in self.fingerprints:
+                for response in fingerprint.get('response'):
+                    if response in resp.text:
+                        logger.log('ALERT', f'Possible expired domain threat found @ {subdomain}')
+                        self.results.append([subdomain, "**Expired**"])
+                        break                
+
     def worker(self, subdomain):
+        authoritative_ns = query_authoritative_ns(subdomain)
         cname = get_cname(subdomain)
-        if cname is None:
-            return
-        main_domain = utils.get_main_domain(cname)
-        for fingerprint in self.fingerprints:
-            cnames = fingerprint.get('cname')
-            if main_domain not in cnames:
-                continue
-            responses = fingerprint.get('response')
-            self.compare(subdomain, cname, responses)
+        if cname is not None:
+            main_domain = utils.get_main_domain(cname)
+            for fingerprint in self.fingerprints:
+                cnames = fingerprint.get('cname')
+                if main_domain not in cnames:
+                    continue
+                responses = fingerprint.get('response')
+                self.compare(subdomain, cname, responses)
+            self.is_expired_or_nonexistant(cname, False)
+        else:
+            # MUST BE ROOT DOMAIN TO QUALIFY HERE
+            if subdomain == utils.get_main_domain(subdomain):
+                self.is_expired_or_nonexistant(subdomain, True)
+        for ns in authoritative_ns:
+            self.is_expired_or_nonexistant(ns, ns=True)
 
     def check(self):
         while not self.subdomainq.empty():  # 保证域名队列遍历结束后能退出线程
@@ -138,6 +227,7 @@ class Takeover(Module):
         if self.subdomains:
             logger.log('INFOR', f'Checking subdomain takeover')
             self.fingerprints = get_fingerprint()
+            self.expired_fingerprints = get_expired_fingerprints()
             self.results.headers = ['subdomain', 'cname']
             # 创建待检查的子域队列
             for domain in self.subdomains:
