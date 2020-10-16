@@ -89,12 +89,6 @@ def get_fingerprint():
         fingerprints = json.load(file)
     return fingerprints
 
-def get_expired_fingerprints():
-    path = settings.data_storage_dir.joinpath('expired.json')
-    with open(path, encoding='utf-8', errors='ignore') as file:
-        fingerprints = json.load(file)
-    return fingerprints
-
 def get_cname(subdomain):
     resolver = utils.dns_resolver()
     try:
