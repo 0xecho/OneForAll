@@ -43,7 +43,7 @@ brute_wordlist_path = data_storage_dir.joinpath('subnames.txt')
 # 爆破所使用的DNS服务器路径 默认data/cn_nameservers.txt 如果你不在中国请改为nameservers.txt
 # DNS resolve server file path default data/nameservers.txt
 # If your computer's location are not in China, change `cn_nameservers.txt` to `nameservers.txt` plz.
-brute_nameservers_path = data_storage_dir.joinpath('cn_nameservers.txt')
+brute_nameservers_path = data_storage_dir.joinpath('nameservers.txt')
 # 域名的权威DNS名称服务器的保存路径 当域名开启了泛解析时会使用该名称服务器来进行A记录查询
 authoritative_dns_path = data_storage_dir.joinpath('authoritative_dns.txt')
 enable_recursive_brute = False  # 是否使用递归爆破(默认False)
