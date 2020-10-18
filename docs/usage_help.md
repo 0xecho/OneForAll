@@ -39,7 +39,7 @@ OneForAll命令行界面基于[Fire](https://github.com/google/python-fire/)实�
    
        Note:
            --port   small/medium/large  详见./config/setting.py(默认small)
-           --format rst/csv/tsv/json/yaml/html/jira/xls/xlsx/dbf/latex/ods (结果格式，默认CSV)
+           --format csv/json (结果格式，默认CSV)
            --path   结果路径(默认None，自动生成)
 
    FLAGS
@@ -48,7 +48,7 @@ OneForAll命令行界面基于[Fire](https://github.com/google/python-fire/)实�
        --targets=TARGETS
            每行一个域名的文件路径
        --brute=BRUTE
-           使用爆破模块(默认False)
+           使用爆破模块(默认True)
        --dns=DNS
            开启子域解析(默认True)
        --req=REQ

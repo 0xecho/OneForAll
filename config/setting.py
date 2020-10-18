@@ -22,8 +22,6 @@ enable_takeover_check = False  # 开启子域接管风险检查(默认False)
 http_request_port = 'small'  # HTTP请求子域(默认'small'，探测80,443端口)
 # 参数可选值True，False分别表示导出存活，全部子域结果
 result_export_alive = False  # 只导出存活的子域结果(默认False)
-# 参数可选格式有'rst', 'csv', 'tsv', 'json', 'yaml', 'html',
-# 'jira', 'xls', 'xlsx', 'dbf', 'latex', 'ods'
 result_save_format = 'csv'  # 子域结果保存文件格式(默认csv)
 # 参数path默认None使用OneForAll结果目录自动生成路径
 result_save_path = None  # 子域结果保存文件路径(默认None)
@@ -59,7 +57,7 @@ delete_massdns_result = True
 only_save_valid = True  # 是否在处理爆破结果时只存入解析成功的子域
 check_time = 10  # 检查字典配置停留时间(默认10秒)
 enable_fuzz = False  # 是否使用fuzz模式枚举域名
-fuzz_place = None  # 指定爆破的位置 指定的位置用`@`表示 示例：www.@.example.com
+fuzz_place = None  # 指定爆破的位置 指定的位置用`*`表示 示例：www.*.example.com
 fuzz_rule = None  # fuzz域名的正则 示例：'[a-z][0-9]' 表示第一位是字母 第二位是数字
 brute_ip_blacklist = {'0.0.0.0', '0.0.0.1'}  # IP黑名单 子域解析到IP黑名单则标记为非法子域
 ip_appear_maximum = 100  # 多个子域解析到同一IP次数超过100次则标记为非法(泛解析)子域
